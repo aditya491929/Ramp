@@ -12,7 +12,8 @@ export function App() {
   const { data: employees, ...employeeUtils } = useEmployees()
   const { data: paginatedTransactions, ...paginatedTransactionsUtils } = usePaginatedTransactions()
   const { data: transactionsByEmployee, ...transactionsByEmployeeUtils } = useTransactionsByEmployee()
-  const [isLoading, setIsLoading] = useState(false)
+  const [_, setIsLoading] = useState(false)
+  const [isEmployeeLoading, setIsEmployeeLoading] = useState(false)
 
   const transactions = useMemo(
     () => paginatedTransactions?.data ?? transactionsByEmployee ?? null,
@@ -21,9 +22,11 @@ export function App() {
 
   const loadAllTransactions = useCallback(async () => {
     setIsLoading(true)
+    setIsEmployeeLoading(true)
     transactionsByEmployeeUtils.invalidateData()
 
     await employeeUtils.fetchAll()
+    setIsEmployeeLoading(false)
     await paginatedTransactionsUtils.fetchAll()
 
     setIsLoading(false)
@@ -31,8 +34,12 @@ export function App() {
 
   const loadTransactionsByEmployee = useCallback(
     async (employeeId: string) => {
-      paginatedTransactionsUtils.invalidateData()
-      await transactionsByEmployeeUtils.fetchById(employeeId)
+      if (employeeId == "") {
+        await loadAllTransactions()
+      } else {
+        paginatedTransactionsUtils.invalidateData()
+        await transactionsByEmployeeUtils.fetchById(employeeId)
+      }
     },
     [paginatedTransactionsUtils, transactionsByEmployeeUtils]
   )
@@ -51,7 +58,7 @@ export function App() {
         <hr className="RampBreak--l" />
 
         <InputSelect<Employee>
-          isLoading={isLoading}
+          isLoading={isEmployeeLoading}
           defaultValue={EMPTY_EMPLOYEE}
           items={employees === null ? [] : [EMPTY_EMPLOYEE, ...employees]}
           label="Filter by employee"
@@ -77,10 +84,11 @@ export function App() {
           {transactions !== null && (
             <button
               className="RampButton"
-              disabled={paginatedTransactionsUtils.loading}
+              disabled={paginatedTransactionsUtils.loading || paginatedTransactions?.nextPage == null}
               onClick={async () => {
                 await loadAllTransactions()
               }}
+              style={{ display: paginatedTransactions?.nextPage == null ? "none" : "block" }}
             >
               View More
             </button>
